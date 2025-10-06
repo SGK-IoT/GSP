@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GSP Decryptor v1.0</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #000;
+            color: #0f0;
+            font-family: 'Courier New', monospace;
+            padding: 20px;
+            min-height: 100vh;
+            background-image: 
+                repeating-linear-gradient(0deg, rgba(0, 255, 0, 0.03) 0px, transparent 1px, transparent 2px, rgba(0, 255, 0, 0.03) 3px),
+                repeating-linear-gradient(90deg, rgba(0, 255, 0, 0.03) 0px, transparent 1px, transparent 2px, rgba(0, 255, 0, 0.03) 3px);
+        }
+
+        .scanline {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                repeating-linear-gradient(
+                    0deg,
+                    transparent,
+                    transparent 2px,
+                    rgba(0, 255, 0, 0.03) 2px,
+                    rgba(0, 255, 0, 0.03) 4px
+                );
+            pointer-events: none;
+            z-index: 1000;
+            animation: scanline 20s linear infinite;
+        }
+
+        @keyframes scanline {
+            0% { background-position: 0 0; }
+            100% { background-position: 0 100px; }
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            border: 2px solid #0f0;
+            padding: 30px;
+            background: rgba(0, 20, 0, 0.9);
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.3);
+            position: relative;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #0f0;
+            padding-bottom: 20px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            text-shadow: 0 0 10px #0f0, 0 0 20px #0f0;
+            animation: glow 2s ease-in-out infinite alternate;
+            margin-bottom: 10px;
+        }
+
+        @keyframes glow {
+            from { text-shadow: 0 0 5px #0f0, 0 0 10px #0f0; }
+            to { text-shadow: 0 0 10px #0f0, 0 0 20px #0f0, 0 0 30px #0f0; }
+        }
+
+        .subtitle {
+            color: #0a0;
+            font-size: 0.9em;
+        }
+
+        .info-box {
+            background: rgba(0, 50, 0, 0.5);
+            border: 1px solid #0a0;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 3px;
+        }
+
+        .info-box h3 {
+            color: #0f0;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .upload-area {
+            border: 2px dashed #0f0;
+            padding: 40px;
+            text-align: center;
+            margin: 20px 0;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: rgba(0, 50, 0, 0.3);
+        }
+
+        .upload-area:hover {
+            background: rgba(0, 100, 0, 0.3);
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.2);
+        }
+
+        .upload-area.dragover {
+            background: rgba(0, 150, 0, 0.3);
+            border-color: #0ff;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .btn {
+            background: #000;
+            color: #0f0;
+            border: 2px solid #0f0;
+            padding: 12px 30px;
+            font-family: 'Courier New', monospace;
+            font-size: 1em;
+            cursor: pointer;
+            margin: 5px;
+            transition: all 0.3s;
+            text-transform: uppercase;
+        }
+
+        .btn:hover {
+            background: #0f0;
+            color: #000;
+            box-shadow: 0 0 15px #0f0;
+        }
+
+        .btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .output {
+            background: #000;
+            border: 2px solid #0f0;
+            padding: 20px;
+            margin: 20px 0;
+            font-size: 0.9em;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .status {
+            margin: 15px 0;
+            padding: 10px;
+            border-left: 4px solid #0f0;
+            background: rgba(0, 50, 0, 0.5);
+        }
+
+        .status.error {
+            border-left-color: #f00;
+            color: #f00;
+        }
+
+        .status.success {
+            border-left-color: #0ff;
+            color: #0ff;
+        }
+
+        .blink {
+            animation: blink 1s step-start infinite;
+        }
+
+        @keyframes blink {
+            50% { opacity: 0; }
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #000;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #0f0;
+            border: 1px solid #000;
+        }
+
+        .file-info {
+            color: #0ff;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="scanline"></div>
+    
+    <div class="container">
+        <div class="header">
+            <h1>⚡ GSP DECRYPTOR v1.0 ⚡</h1>
+            <div class="subtitle">
+                >>> Otto Bock Wheelchair Parameter File Tool <<<br>
+                [ CLASSIFIED - FOR AUTHORIZED USE ONLY ]
+            </div>
+        </div>
+
+        <div style="background: #ff6600; color: #000; padding: 20px; margin-bottom: 20px; border: 3px solid #ff3300; text-align: center; font-weight: bold; box-shadow: 0 0 20px rgba(255, 102, 0, 0.5);">
+            <div style="font-size: 1.5em; margin-bottom: 10px;">⚠️ WARNUNG / WARNING ⚠️</div>
+            <div style="font-size: 1.1em;">
+                NUR FÜR SCHULUNGS- UND FORSCHUNGSZWECKE!<br>
+                FOR EDUCATIONAL AND RESEARCH PURPOSES ONLY!
+            </div>
+            <div style="margin-top: 10px; font-size: 0.9em;">
+                Unbefugte Nutzung an medizinischen Geräten kann gefährlich sein.<br>
+                Unauthorized use on medical devices can be dangerous.
+            </div>
+            <div style="margin-top: 15px; padding-top: 15px; border-top: 2px solid #000; font-size: 0.85em;">
+                KEINE HAFTUNG · NO LIABILITY · VERWENDUNG AUF EIGENE GEFAHR<br>
+                Der Autor übernimmt keinerlei Haftung für Schäden jeglicher Art.<br>
+                The author assumes no liability for any damages of any kind.
+            </div>
+        </div>
+
+        <div class="info-box">
+            <h3>// SYSTEM INFORMATION</h3>
+            <p>→ Decrypts .GSP files to readable .TXT format</p>
+            <p>→ Encrypts plain text to .GSP format</p>
+            <p>→ Encryption Key: Strothmann Electronics 1998-2012</p>
+        </div>
+
+        <div class="upload-area" id="uploadArea">
+            <p style="font-size: 1.5em; margin-bottom: 10px;">▼ DROP FILE HERE ▼</p>
+            <p>or click to select file</p>
+            <p style="margin-top: 10px; font-size: 0.8em; color: #0a0;">
+                Supported: .GSP, .MSP, or any text file
+            </p>
+            <input type="file" id="fileInput" accept=".gsp,.msp,.txt">
+        </div>
+
+        <div id="status"></div>
+        <div id="fileInfo" class="file-info"></div>
+
+        <div class="controls">
+            <button class="btn" id="decryptBtn" disabled>🔓 DECRYPT</button>
+            <button class="btn" id="encryptBtn" disabled>🔒 ENCRYPT</button>
+            <button class="btn" id="downloadBtn" disabled>💾 DOWNLOAD</button>
+            <button class="btn" id="clearBtn">🗑️ CLEAR</button>
+        </div>
+
+        <div id="output" class="output" style="display: none;"></div>
+    </div>
+
+    <script>
+        const KEY = "(c) Copyright 1998-2012 Dipl.Ing.T.Strothmann electronics";
+        let currentFile = null;
+        let processedData = null;
+        let currentOperation = null;
+
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const decryptBtn = document.getElementById('decryptBtn');
+        const encryptBtn = document.getElementById('encryptBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const statusDiv = document.getElementById('status');
+        const fileInfoDiv = document.getElementById('fileInfo');
+        const outputDiv = document.getElementById('output');
+
+        // Upload area handlers
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            if (e.dataTransfer.files.length) {
+                handleFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        function handleFile(file) {
+            currentFile = file;
+            const reader = new FileReader();
+            
+            showStatus(`>>> Loading file: ${file.name}...`, 'info');
+            
+            reader.onload = (e) => {
+                currentFile.data = new Uint8Array(e.target.result);
+                showFileInfo(file);
+                decryptBtn.disabled = false;
+                encryptBtn.disabled = false;
+                showStatus(`✓ File loaded successfully: ${file.size} bytes`, 'success');
+            };
+            
+            reader.onerror = () => {
+                showStatus('✗ ERROR: Failed to read file', 'error');
+            };
+            
+            reader.readAsArrayBuffer(file);
+        }
+
+        function showFileInfo(file) {
+            fileInfoDiv.innerHTML = `
+                <div style="border: 1px solid #0f0; padding: 10px; background: rgba(0,30,0,0.5);">
+                    FILE: ${file.name}<br>
+                    SIZE: ${file.size} bytes<br>
+                    TYPE: ${file.type || 'unknown'}<br>
+                    <span class="blink">█</span> READY FOR PROCESSING
+                </div>
+            `;
+        }
+
+        function showStatus(message, type = 'info') {
+            statusDiv.className = `status ${type}`;
+            statusDiv.textContent = message;
+            statusDiv.style.display = 'block';
+        }
+
+        function decryptGSP(data) {
+            const result = [];
+            let keyPos = 0;
+            let byteCount = 0;
+
+            for (let i = 0; i < data.length; i++) {
+                const encryptedByte = data[i];
+                const keyByte = KEY.charCodeAt(keyPos % KEY.length);
+                const decryptedByte = (byteCount ^ keyByte ^ encryptedByte) & 0xFF;
+                result.push(decryptedByte);
+
+                keyPos++;
+                if (keyPos >= KEY.length) keyPos = 0;
+
+                if (decryptedByte === 0x0A) {
+                    keyPos = 0;
+                    byteCount = 0;
+                } else {
+                    byteCount++;
+                }
+            }
+
+            return new Uint8Array(result);
+        }
+
+        function encryptGSP(data) {
+            const result = [];
+            let keyPos = 0;
+            let byteCount = 0;
+
+            for (let i = 0; i < data.length; i++) {
+                const plainByte = data[i];
+                const keyByte = KEY.charCodeAt(keyPos % KEY.length);
+                const encryptedByte = (byteCount ^ keyByte ^ plainByte) & 0xFF;
+                result.push(encryptedByte);
+
+                keyPos++;
+                if (keyPos >= KEY.length) keyPos = 0;
+
+                if (plainByte === 0x0A) {
+                    keyPos = 0;
+                    byteCount = 0;
+                } else {
+                    byteCount++;
+                }
+            }
+
+            return new Uint8Array(result);
+        }
+
+        decryptBtn.addEventListener('click', () => {
+            if (!currentFile || !currentFile.data) return;
+            
+            showStatus('>>> DECRYPTING... <span class="blink">█</span>', 'info');
+            statusDiv.innerHTML = '>>> DECRYPTING... <span class="blink">█</span>';
+            
+            setTimeout(() => {
+                try {
+                    processedData = decryptGSP(currentFile.data);
+                    currentOperation = 'decrypt';
+                    displayOutput(processedData);
+                    downloadBtn.disabled = false;
+                    showStatus('✓ DECRYPTION SUCCESSFUL', 'success');
+                } catch (err) {
+                    showStatus('✗ DECRYPTION FAILED: ' + err.message, 'error');
+                }
+            }, 500);
+        });
+
+        encryptBtn.addEventListener('click', () => {
+            if (!currentFile || !currentFile.data) return;
+            
+            showStatus('>>> ENCRYPTING... <span class="blink">█</span>', 'info');
+            statusDiv.innerHTML = '>>> ENCRYPTING... <span class="blink">█</span>';
+            
+            setTimeout(() => {
+                try {
+                    processedData = encryptGSP(currentFile.data);
+                    currentOperation = 'encrypt';
+                    displayOutput(processedData, true);
+                    downloadBtn.disabled = false;
+                    showStatus('✓ ENCRYPTION SUCCESSFUL', 'success');
+                } catch (err) {
+                    showStatus('✗ ENCRYPTION FAILED: ' + err.message, 'error');
+                }
+            }, 500);
+        });
+
+        function displayOutput(data, isEncrypted = false) {
+            outputDiv.style.display = 'block';
+            
+            if (isEncrypted) {
+                const hex = Array.from(data.slice(0, 512))
+                    .map(b => b.toString(16).padStart(2, '0'))
+                    .join(' ');
+                outputDiv.textContent = `>>> ENCRYPTED DATA (hex preview - first 512 bytes):\n\n${hex}\n\n... (${data.length} bytes total)`;
+            } else {
+                try {
+                    const text = new TextDecoder('utf-8', { fatal: false }).decode(data);
+                    outputDiv.textContent = `>>> DECRYPTED CONTENT:\n\n${text}`;
+                } catch {
+                    outputDiv.textContent = '>>> DECRYPTED DATA (binary - cannot display as text)';
+                }
+            }
+        }
+
+        downloadBtn.addEventListener('click', () => {
+            if (!processedData) return;
+            
+            const blob = new Blob([processedData], { type: 'application/octet-stream' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            
+            const originalName = currentFile.name.replace(/\.[^.]+$/, '');
+            const extension = currentOperation === 'decrypt' ? '.txt' : '.gsp';
+            a.href = url;
+            a.download = originalName + extension;
+            a.click();
+            
+            URL.revokeObjectURL(url);
+            showStatus(`✓ FILE DOWNLOADED: ${a.download}`, 'success');
+        });
+
+        clearBtn.addEventListener('click', () => {
+            currentFile = null;
+            processedData = null;
+            currentOperation = null;
+            fileInput.value = '';
+            outputDiv.style.display = 'none';
+            statusDiv.style.display = 'none';
+            fileInfoDiv.innerHTML = '';
+            decryptBtn.disabled = true;
+            encryptBtn.disabled = true;
+            downloadBtn.disabled = true;
+            showStatus('>>> SYSTEM CLEARED', 'info');
+            setTimeout(() => statusDiv.style.display = 'none', 2000);
+        });
+    </script>
+</body>
+</html>
